@@ -10,7 +10,7 @@ from PIL import Image
 
 class CropMAE_PIPE(data.Dataset):
     def __init__(self, files, args):   
-        self.crop_strategy = getattr(CropMAEStrategies, args.crop_strategy)(args)
+        self.crop_strategy = getattr(CropMAEStrategies, args.crop_strategy)(args) # GlobalToLocal
         self.args = args
         self.files = files
 

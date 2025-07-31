@@ -13,22 +13,32 @@ def get_args_parser():
     # Architecture parameters
     parser.add_argument('--input_size', default=224, type=int, help='images input size')
     parser.add_argument('--architecture', default='vits', type=str, help='architecture (vits, vitb, vitl)')
+    # parser.add_argument('--architecture', default='vitl', type=str, help='architecture (vits, vitb, vitl)')
     parser.add_argument('--decoder_embed_dim', default=256, type=int, help='decoder embedding dimension')
     parser.add_argument('--decoder_depth', default=4, type=int, help='number of decoder layers')
     parser.add_argument('--decoder_num_heads', default=8, type=int, help='number of decoder heads')
+    # parser.add_argument('--decoder_embed_dim', default=512, type=int, help='decoder embedding dimension')
+    # parser.add_argument('--decoder_depth', default=8, type=int, help='number of decoder layers')
+    # parser.add_argument('--decoder_num_heads', default=16, type=int, help='number of decoder heads')
+    
     parser.add_argument('--masking_ratio', default=0.985, type=float, help='Masking ratio')
+    parser.add_argument('--inital_mask_ratio', default=0.985, type=float, help='Masking ratio')
+    parser.add_argument('--final_mask_ratio', default=0.85, type=float, help='Masking ratio')
+    
     parser.add_argument('--patch_size', default=16, type=int, help='Patch size')
     parser.add_argument('--norm_pix_loss', action='store_true', help='Use (per-patch) normalized pixels as targets for computing loss')
     parser.set_defaults(norm_pix_loss=False)
     
     # Training parameters
     parser.add_argument('--batch_size', default=128, type=int, help='Batch size per GPU (effective batch size is batch_size * accum_iter * # gpus')
+    # parser.add_argument('--batch_size', default=224, type=int, help='Batch size per GPU (effective batch size is batch_size * accum_iter * # gpus')
     parser.add_argument('--max_files', default=None, type=int, help='Max number of files  (randomly) taken from the dataset')
     parser.add_argument('--accum_iter', default=1, type=int, help='Accumulate gradient iterations (for increasing the effective batch size under memory constraints)')
 
     parser.add_argument("--wandb", default="online", type=str, help="Wandb mode (online/offline)")
     parser.add_argument('--wandb_run_name', default="", type=str, help='Wandb run name')
-    parser.add_argument('--save_every_n', default=10, type=int, help='Save checkpoint every n epochs')
+    # parser.add_argument('--save_every_n', default=5, type=int, help='Save checkpoint every n epochs')
+    parser.add_argument('--save_every_n', default=3, type=int, help='Save checkpoint every n epochs')
     parser.add_argument('--log_per_epoch', default=2, type=int, help='Number of logs per epoch')
 
     parser.add_argument('--weight_decay', type=float, default=0.05, help='weight decay (default: 0.05)')
@@ -38,30 +48,53 @@ def get_args_parser():
     parser.add_argument('--blr', type=float, default=5e-5, metavar='LR', help='base learning rate: absolute_lr = base_lr * total_batch_size / 256')
     parser.add_argument('--min_lr_prop', default=0.0, type=float, help="relative minimum lr")
 
-    parser.add_argument('--epochs', default=400, type=int)
+    parser.add_argument('--epochs', default=1000, type=int)
     parser.add_argument('--start_epoch', default=0, type=int)
     parser.add_argument('--warmup_epochs_prop', default=0.05, type=float, help='relative length of warmup in epochs')
     parser.add_argument('--resume', default='', help='resume from checkpoint')
     
     # Augmentation parameters
-    parser.add_argument('--random_area_min_global', type=float, default=0.2, help='random area min')
-    parser.add_argument('--random_area_max_global', type=float, default=1.0, help='random area max')
-    parser.add_argument('--random_area_min_local', type=float, default=0.2, help='random area min')
-    parser.add_argument('--random_area_max_local', type=float, default=1.0, help='random area max')
+    # parser.add_argument('--random_area_min_global', type=float, default=0.2, help='random area min')
+    # parser.add_argument('--random_area_max_global', type=float, default=1.0, help='random area max')
+    # parser.add_argument('--random_area_min_local', type=float, default=0.2, help='random area min')
+    # parser.add_argument('--random_area_max_local', type=float, default=1.0, help='random area max')
 
-    parser.add_argument('--use_color_jitter', type=bool, default=False, help='use color jitter')
-    parser.add_argument('--use_gaussian_blur', type=bool, default=False, help='use gaussian blur')
-    parser.add_argument('--use_elastic_transform', type=bool, default=False, help='use elastic transform')
+    # parser.add_argument('--use_color_jitter', type=bool, default=False, help='use color jitter')
+    # parser.add_argument('--use_gaussian_blur', type=bool, default=False, help='use gaussian blur')
+    # parser.add_argument('--use_elastic_transform', type=bool, default=False, help='use elastic transform')
 
-    parser.add_argument('--random_aspect_ratio_min_global', type=float, default=3/4, help='random aspect ratio min')
-    parser.add_argument('--random_aspect_ratio_max_global', type=float, default=4/3, help='random aspect ratio max')
-    parser.add_argument('--random_aspect_ratio_min_local', type=float, default=3/4, help='random aspect ratio min')
-    parser.add_argument('--random_aspect_ratio_max_local', type=float, default=4/3, help='random aspect ratio max')
+    # parser.add_argument('--random_aspect_ratio_min_global', type=float, default=3/4, help='random aspect ratio min')
+    # parser.add_argument('--random_aspect_ratio_max_global', type=float, default=4/3, help='random aspect ratio max')
+    # parser.add_argument('--random_aspect_ratio_min_local', type=float, default=3/4, help='random aspect ratio min')
+    # parser.add_argument('--random_aspect_ratio_max_local', type=float, default=4/3, help='random aspect ratio max')
 
-    parser.add_argument('--repeated_sampling_factor', default=1, type=int, help='repeated sampling factor')
-    parser.add_argument("--crop_strategy", default="GlobalToLocal", type=str, help="Crop strategy")
+    # parser.add_argument('--repeated_sampling_factor', default=1, type=int, help='repeated sampling factor')
+    # parser.add_argument("--crop_strategy", default="GlobalToLocal", type=str, help="Crop strategy")
+    # parser.add_argument("--interpolation_method", default="bilinear", type=str, help="Interpolation method")
+    # parser.add_argument("--horizontal_flip_p", default=0.5, type=float, help="Horizontal flip probability")
+
+    #========== YK_ver
+    parser.add_argument('--random_area_min_1', type=float, default=0.2, help='random area min')
+    parser.add_argument('--random_area_max_1', type=float, default=1.0, help='random area max')
+    parser.add_argument('--random_area_min_2', type=float, default=0.2, help='random area min')
+    parser.add_argument('--random_area_max_2', type=float, default=1.0, help='random area max')
+
+    parser.add_argument('--use_color_jitter_1', type=bool, default=False, help='use color jitter')
+    parser.add_argument('--use_gaussian_blur_1', type=bool, default=False, help='use gaussian blur')
+    parser.add_argument('--use_elastic_transform_1', type=bool, default=False, help='use elastic transform')
+    parser.add_argument('--use_color_jitter_2', type=bool, default=False, help='use color jitter')
+    parser.add_argument('--use_gaussian_blur_2', type=bool, default=False, help='use gaussian blur')
+    parser.add_argument('--use_elastic_transform_2', type=bool, default=False, help='use elastic transform')
+
+    parser.add_argument('--random_aspect_ratio_min_1', type=float, default=3/4, help='random aspect ratio min')
+    parser.add_argument('--random_aspect_ratio_max_1', type=float, default=4/3, help='random aspect ratio max')
+    parser.add_argument('--random_aspect_ratio_min_2', type=float, default=3/4, help='random aspect ratio min')
+    parser.add_argument('--random_aspect_ratio_max_2', type=float, default=4/3, help='random aspect ratio max')
+
     parser.add_argument("--interpolation_method", default="bilinear", type=str, help="Interpolation method")
-    parser.add_argument("--horizontal_flip_p", default=0.5, type=float, help="Horizontal flip probability")
+    parser.add_argument("--horizontal_flip_p_1", default=0.5, type=float, help="Horizontal flip probability")
+    parser.add_argument("--horizontal_flip_p_2", default=0.5, type=float, help="Horizontal flip probability")
+    #========== 
 
     # Dataset parameters
     parser.add_argument('--data_path', default='k400_true_valid_files.txt', type=str, help='dataset path')

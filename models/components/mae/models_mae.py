@@ -73,6 +73,25 @@ class MaskedAutoencoderViT(nn.Module):
             "total_n_trainable_params_decoder" : count_params(p.numel() for p in self.decoder_blocks.parameters()),
         }
 
+    #####################################################################################################
+    def initialize_decoder_weights(self):
+        """ Only initializes the decoder, keeping encoder weights untouched. """
+        # Decoder positional embedding 초기화
+        decoder_pos_embed = get_2d_sincos_pos_embed(self.decoder_pos_embed.shape[-1], int(self.patch_embed.num_patches**.5), cls_token=True)
+        self.decoder_pos_embed.data.copy_(torch.from_numpy(decoder_pos_embed).float().unsqueeze(0))
+
+        # Mask Token 초기화
+        torch.nn.init.normal_(self.mask_token, std=.02)
+
+        # Decoder의 nn.Linear 및 nn.LayerNorm 초기화
+        for module in self.decoder_blocks:
+            module.apply(self._init_weights)
+
+        self.decoder_pred.apply(self._init_weights)
+        self.decoder_norm.apply(self._init_weights)
+    #####################################################################################################
+    
+    
     def initialize_weights(self):
         # initialization
         # initialize (and freeze) pos_embed by sin-cos embedding
@@ -130,26 +149,31 @@ class MaskedAutoencoderViT(nn.Module):
         x = torch.einsum('nhwpqc->nchpwq', x)
         imgs = x.reshape(shape=(x.shape[0], 3, h * p, h * p))
         return imgs
-
+    
+    #============================================================================>
     def random_masking(self, x, mask_ratio):
         """
         Perform per-sample random masking by per-sample shuffling.
         Per-sample shuffling is done by argsort random noise.
         x: [N, L, D], sequence
         """
+        # ✅ Step 1: 입력 텐서 정보 확인
         N, L, D = x.shape  # batch, length, dim
-        len_keep = int(L * (1 - mask_ratio))
+        len_keep = int(L * (1 - mask_ratio)) # 남길 토큰 개수
         
-        noise = torch.rand(N, L, device=x.device)  # noise in [0, 1]
+        noise = torch.rand(N, L, device=x.device)  # noise in [0, 1], 랜덤 노이즈 생성 [N, L]
         
+        # ✅ Step 2: 마스크할 토큰 랜덤 선택
         # sort noise for each sample
-        ids_shuffle = torch.argsort(noise, dim=1)  # ascend: small is keep, large is remove
-        ids_restore = torch.argsort(ids_shuffle, dim=1)
+        ids_shuffle = torch.argsort(noise, dim=1)  # ascend: small is keep, large is remove (오름차순 정렬 → 작은 값부터 유지)
+        ids_restore = torch.argsort(ids_shuffle, dim=1) # 복원할 때 필요한 순서 정보 저장
 
+        # ✅ Step 3: 마스크되지 않은 토큰 선택
         # keep the first subset
         ids_keep = ids_shuffle[:, :len_keep]
         x_masked = torch.gather(x, dim=1, index=ids_keep.unsqueeze(-1).repeat(1, 1, D))
 
+        # ✅ Step 4: 마스크 생성
         # generate the binary mask: 0 is keep, 1 is remove
         mask = torch.ones([N, L], device=x.device)
         mask[:, :len_keep] = 0
@@ -157,6 +181,84 @@ class MaskedAutoencoderViT(nn.Module):
         mask = torch.gather(mask, dim=1, index=ids_restore)
 
         return x_masked, mask, ids_restore
+    #============================================================================>
+    def roi_random_masking(self, x, mask, mask_ratio):
+        """
+        흰색(ROI) 영역 내에서만 랜덤하게 마스킹하는 함수.
+        
+        x: [N, L, D]  # 입력 시퀀스 (N=batch, L=패치 개수, D=특징 차원)
+        mask: [N, L]  # 1=눈 영역(유효), 0=배경(무시)
+        mask_ratio: 마스킹할 비율 (ex: 0.75)
+        """
+        # ✅ Step 1: 입력 텐서 정보 확인
+        N, L, D = x.shape  # batch, length, dim
+
+        num_roi = mask.sum(dim=1)
+        num_keep = int(L * (1 - mask_ratio)) # 남길 토큰 개수
+        num_mask = L - num_keep
+        
+        noise = torch.rand(N, L, device=x.device) * mask  # noise in [0, 1], 랜덤 노이즈 생성 [N, L]
+        
+        # ✅ Step 2: 마스크할 토큰 랜덤 선택
+        # sort noise for each sample
+        ids_shuffle = torch.argsort(noise, dim=1, descending= True)  # ascend: small is keep, large is remove (오름차순 정렬 → 작은 값부터 유지)
+        ids_restore = torch.argsort(ids_shuffle, dim=1) # 복원할 때 필요한 순서 정보 저장
+
+        # ✅ Step 3: 마스크되지 않은 토큰 선택
+        # keep the first subset
+        ids_keep = ids_shuffle[:, :num_keep]
+        x_masked = torch.gather(x, dim=1, index=ids_keep.unsqueeze(-1).repeat(1, 1, D))
+
+        # ✅ Step 4: 마스크 생성
+        # generate the binary mask: 0 is keep, 1 is remove
+        final_mask = torch.ones([N, L], device=x.device)
+        final_mask[:, :num_keep] = 0
+        # unshuffle to get the binary mask
+        final_mask = torch.gather(final_mask, dim=1, index=ids_restore)
+
+        return x_masked, final_mask, ids_restore
+
+    # def roi_random_masking(self, x, mask, mask_ratio):
+    #     """
+    #     흰색(ROI) 영역 내에서만 랜덤하게 마스킹하는 함수.
+        
+    #     x: [N, L, D]  # 입력 시퀀스 (N=batch, L=패치 개수, D=특징 차원)
+    #     mask: [N, L]  # 1=눈 영역(유효), 0=배경(무시)
+    #     mask_ratio: 마스킹할 비율 (ex: 0.75)
+    #     """
+    #     N, L, D = x.shape  # batch(128), length(196), dim(384)
+    #     roi_mask = (mask == 1).float()  # ROI(흰색 영역)만 1로 설정
+    #     num_roi = roi_mask.sum(dim=1)  # 각 샘플에서 ROI(눈 영역) 패치 개수 계산 (196개 중에 ROI에 해당하는 패치 개수라서 다양함 157, 175, 168 등등등)
+
+    #     # 마스킹할 ROI 내 패치 개수 계산 (항상 일정한 개수 유지)
+    #     num_mask = int(L * (1-mask_ratio))
+    #     num_keep = num_roi - num_mask
+
+    #     # 0~1 사이의 랜덤값 생성 (배경 패치는 제외)
+    #     noise = torch.rand(N, L, device=x.device) * roi_mask  # 배경(0인 부분) 제외
+    #     # noise[roi_mask == 0] = float('inf')  # 배경 패치는 무한대로 설정하여 무조건 선택 안 되도록
+
+    #     # # noise를 기준으로 정렬 (ROI 내에서만 랜덤 셔플링)
+    #     # ids_shuffle = torch.argsort(noise, dim=1)  # 값이 작은 것부터 유지
+    #     # ids_restore = torch.argsort(ids_shuffle, dim=1)
+    #     # noise를 기준으로 정렬 (ROI 내에서만 랜덤 셔플링, 내림차순)
+    #     ids_shuffle = torch.argsort(noise, dim=1, descending=True)  # 값이 큰 것부터 유지
+    #     ids_restore = torch.argsort(ids_shuffle, dim=1)
+
+    #     # 유지할 패치 선택
+    #     ids_keep = ids_shuffle[:, :int(num_keep.min]  # ROI 내에서 유지할 패치만 선택
+    #     x_masked = torch.gather(x, dim=1, index=ids_keep.unsqueeze(-1).repeat(1, 1, D))  
+
+    #     # 마스크 생성 (ROI 내에서만 마스킹 적용)
+    #     final_mask = torch.ones([N, L], device=x.device)
+    #     final_mask.scatter_(1, ids_keep, 0)  # 유지할 패치는 0, 나머지는 1 (마스킹됨)
+
+    #     # unshuffle을 통해 원래 순서로 복원
+    #     final_mask = torch.gather(final_mask, dim=1, index=ids_restore)
+
+    #     return x_masked, final_mask, ids_restore
+
+    #============================================================================>
 
     def forward_encoder(self, x, mask_ratio):
         # embed patches

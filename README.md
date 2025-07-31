@@ -1,84 +1,88 @@
-# CropMAE: Efficient Image Pre-Training with Siamese Cropped Masked Autoencoders
 
-[![ArXiv](https://img.shields.io/badge/arXiv-2403.17823-b31b1b.svg?style=flat)](https://arxiv.org/abs/2403.17823)
-[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+<p align="center">
+  <h1 align="center">PRETI: Patient-Aware Retinal Foundation Model via Metadata-Guided Representation Learning</h1>
+  <h3 align="center"><b>MICCAI 2025 (Early Accept)</b></h3>
+  <p align="center">
+    <h4 align="center">
+      <strong>Yeonkyung Lee</strong></a> · 
+      <strong>Woojung Han</strong></a> · 
+      <strong>Youngjun Jun</strong></a> · 
+      <strong>Hyeonmin Kim</strong></a> · 
+      <strong>Jungkyung Cho</strong></a> · 
+      <strong>Seong Jae Hwang</strong></a>
+    </h4>
+    <h4 align="center">
+      Yonsei University ·
+      Mediwhale
+    </h4>
+  </p>
+  <p align="center">
+    <a href="https://arxiv.org/abs/2505.12233"><img src="https://img.shields.io/badge/arXiv-2505.12233-b31b1b.svg" height=22.5></a>
+  </p>
+  <br>
+</p>
 
-PyTorch implementation of CropMAE, introduced in [Efficient Image Pre-Training with Siamese Cropped Masked Autoencoders](https://arxiv.org/abs/2403.17823), and presented at ECCV 2024.
+# Abstract
+Retinal foundation models have significantly advanced retinal image analysis by leveraging self-supervised learning to reduce dependence on labeled data while achieving strong generalization. Many recent approaches enhance retinal image understanding using report supervision, but obtaining clinical reports is often costly and challenging. In contrast, metadata (e.g., age, gender) is widely available and serves as a valuable resource for analyzing disease progression. To effectively incorporate patient-specific information, we propose PRETI, a retinal foundation model that integrates metadata-aware learning with robust self-supervised representation learning. We introduce Learnable Metadata Embedding (LME), which dynamically refines metadata representations. Additionally, we construct patient-level data pairs, associating images from the same individual to improve robustness against non-clinical variations. To further optimize retinal image representation, we propose Retina-Aware Adaptive Masking (RAAM), a strategy that selectively applies masking within the retinal region and dynamically adjusts the masking ratio during training. PRETI captures both global structures and fine-grained pathological details, resulting in superior diagnostic performance. Extensive experiments demonstrate that PRETI achieves state-of-the-art results across diverse diseases and biomarker predictions using in-house and public data, indicating the importance of metadata-guided foundation models in retinal disease analysis.
 
-<div align="center">
-  <img width="100%" alt="CropMAE illustration" src=".github/CropMAE_white.png">
-</div>
+<p align="center">
+<img src="docs/fig_main.png" width="800px"/>  
 
-## 🚩 Checkpoints
+<br>
 
-| Dataset  | $J\\&F_m$          | mIoU | PCK@0.1 | Download |
-| -------- | ------------------ | ---- | ------- | -------- |
-| ImageNet | 60.4               | 33.3 | 43.6    |  [link](https://drive.google.com/file/d/1RTkARjzkM9S3OO87AzVeDbYAF_b2zA-2/view?usp=sharing)
-| K400     | 58.6               | 33.7 | 42.9    |  [link](https://drive.google.com/file/d/1oMXiX_uyGzyQB7S-MYkdJvKFmIuPXkYb/view?usp=sharing)
+# Install Environment
 
-## 👁️ Visualization Demo
+Our code is based on the requirements of the official [CropMAE repository](https://github.com/alexandre-eymael/CropMAE).  
+In addition to those requirements, we include several additional dependencies, which can be found in `requirements.txt`.  
+To set up the environment, please run:
 
-Run an interactive demo of CropMAE in the cloud using [Colab Notebooks](https://colab.research.google.com/drive/173wOiSf0ViXgTd6ARibVn1E6pN_asJKk), or locally with the [Notebook Demo](cropmae_reconstructions.ipynb).
 
-## 🚀 Training
-
-### Environment
-Create a virtual environment (e.g., using conda or venv) with Python 3.11 and install the dependencies:
-
-```bash
-conda create --name CropMAE python=3.11
-conda activate CropMAE
-python -m pip install -r requirements.txt
 ```
-### Starting the training
-
-This section assumes that you want to run CropMAE with default parameters. You can run `python3 train_cropmae_in.py -h` to have a complete list of possible parameters that you can change.
-
-#### Single GPU
-To start the training on a single GPU, you just have to provide the path to your dataset (typically ImageNet):
-
-```bash
-python train_cropmae_in.py --data_path=path/to/imagenet/folder
+conda create -n preti python=3.11
+conda activate preti
+pip install -r requirements.txt
 ```
+<br>
 
-#### Multi-GPUs
-We provide a script to start the training on a cluster of GPUs using slurm. Modify the `scripts/train_cropmae_in.sh` with your slurm configuration (e.g., account name) and the parameters you want to use, and start the training with:
-```bash
-cd scripts && sbatch train_cropmae_in.sh
+# Dataset Structure
+Our model uses a paired fundus image dataset with age, gender, and corresponding ROI masks. Each sample consists of a left-right eye pair (can include self-pairs) and their corresponding metadata.
+
+### 🔧 Requirements
+To build the dataset correctly, you need:
+
+1. A CSV file with the following columns:
+- `patient_id`: Unique ID per subject
+- `exam_id`: Examination ID
+- `jpg_h512_path_automorph`: Path to the fundus image (resolution 512x512 recommended)
+- `mask_path`: Path to the binary mask image
+- `age`: Age of the patient (float or int)
+- `gender`: "Male" or "Female"
+- `laterality`: Value indicating eye side (e.g., 0.0 = Left, 1.0 = Right)
+
+2. Images & masks must be accessible via paths in the CSV.
+
+<br>
+
+# Pretrained Weights
+
+We provide pretrained weights for the PRETI model trained on fundus image pairs.
+
+
+| Model Variant | Description               | Download Link |
+|---------------|---------------------------|----------------|
+| `preti-vitb`  | ViT-Base backbone, 119 epochs | [Download](https://drive.google.com/file/d/1mEFm3bxSPPOm4bLPC9Ey64oeq-6F0S0G/view?usp=drive_link) |
+
+<br>
+
+## Citation
+If you found this code useful, please cite the following paper:
+
 ```
-
-## 📊 Evaluation
-
-### Prerequisites
-Download the [DAVIS](https://davischallenge.org/), [JHMDB](http://jhmdb.is.tue.mpg.de/), and [VIP](https://github.com/HCPLab-SYSU/ATEN) datasets.
-
-### Perform evaluation
-The `downstreams/propagation/start.py` script can be used to evaluate a checkpoint on the DAVIS, JHMDB, and VIP datasets. Run the following command to have an overview of the available parameters:
-
-```bash
-python3 -m downstreams.propagation.start -h
-```
-
-For example, to evaluate a checkpoint on the DAVIS dataset with the default evaluation parameters (i.e, the ones used in the paper), you can use the following command:
-
-```bash
-python3 -m downstreams.propagation.start --davis --checkpoint=path/to/checkpoint.pt --output_dir=path/to/output_dir --davis_file=path/to/davis_file --davis_path=path/to/davis_path
-```
-
-This will create the folder `path/to/output_dir/davis` and evaluate the checkpoint `path/to/checkpoint.pt` on DAVIS. The results, both quantitative and qualitative, will be saved in this folder, printed to the standard output stream, and reported on Weights & Biases if enabled.
-
-## 🖋️ Citation
-If you use our code or find our results helpful, please consider citing our work:
-```bibtex
-@article{Eymael2024Efficient,
-	title = {Efficient Image Pre-Training with Siamese Cropped Masked Autoencoders},
-	author = {Eyma{\"e}l, Alexandre and Vandeghen, Renaud and Cioppa, Anthony and Giancola, Silvio and Ghanem, Bernard and Van Droogenbroeck, Marc},
-	journal = {arXiv:2403.17823},
-	year = {2024},
+@InProceedings{2025preti,
+    author    = {Lee, Yeonkyung and Han, Woojung and Jun, Youngjun and Kim, Hyeonmin and Cho, Jungkyung and Hwang, Seong Jae},
+    title     = {PRETI: Patient-Aware Retinal Foundation Model via Metadata-Guided Representation Learning},
+    booktitle = {International Conference on Medical Image Computing and Computer-Assisted Intervention},
+    year      = {2025},
+    organization={Springer}
 }
 ```
-
-## 🌟 Acknowledgements
-
-- Our code is based on the official [PyTorch implementation of MAE](https://github.com/facebookresearch/mae).  
-- The evaluation code is based on [videowalk](https://github.com/ajabri/videowalk).

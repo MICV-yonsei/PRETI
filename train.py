@@ -8,17 +8,25 @@ import os, glob
 import torch
 import random
 import torch.backends.cudnn as cudnn
+import torchvision.transforms as transforms
 import misc.util as util
 from misc.slurm import submit_DAVIS_slurm
 import numpy as np
 import time
 import uuid
 from pathlib import Path
-from models.SiamMAE import SIAM_MODELS
 import timm.optim.optim_factory as optim_factory
 
-def main(args):
+##########################################################################################
+from models.PRETI_model import SIAM_MODELS
+import torchvision.transforms as transforms
+import torchvision.transforms.v2 as T2
+from data.PRETI_dataset import FundusDataset_w_meta
+import pandas as pd
+##########################################################################################
 
+
+def main(args):
     run_id = uuid.uuid4().hex[:8]
     args.wandb_run_name = f"{args.wandb_run_name}-{run_id}"
 
@@ -93,22 +101,12 @@ def main(args):
     # Resume
     misc.load_model(args=args, model_without_ddp=model_without_ddp, optimizer=optimizer, loss_scaler=loss_scaler)
 
-    # Dataset parameters
-    dataset_location = args.data_path
 
-    # Parse image files recursively
-    img_files = glob.glob(os.path.join(dataset_location, "**", "*.JPEG"), recursive=True)
-
-    # keep only the first `args.max_files` files
-    if args.max_files is not None:
-        img_files = img_files[:min(args.max_files, len(img_files))]
-    args.max_files = len(img_files)
-
-    dataset = CropMAE_Image_Pipe(
-        files=img_files,
-        args=args
+    dataset = FundusDataset_w_meta(
+        csv_file = args.csv_path,
+        args = args
     )
-
+    
     if args.distributed:
         sampler = torch.utils.data.DistributedSampler(dataset)
     else:
@@ -166,18 +164,27 @@ def main(args):
 
         epoch_start = time.time()
         running_loss = 0
-        for idx, imgs in enumerate(metric_logger.log_every(dataloader, args.log_every_n, header)):
+        
+        for idx, (paired_imgs, meta_data, paired_masks) in enumerate(metric_logger.log_every(dataloader, args.log_every_n, header)):
+            paired_imgs = paired_imgs.to(device, non_blocking=True)
+            paired_masks = paired_masks.to(device, non_blocking=True)
 
-            imgs = imgs.to(device, non_blocking=True)
+            age_tensor = meta_data["age"].to(device, non_blocking=True)
+            gender_tensor = meta_data["gender"].to(device, non_blocking=True)
 
             with torch.cuda.amp.autocast():
-                loss, masked_preds, masked_masks = model(
-                    imgs,
-                    mask_ratio=args.masking_ratio
+                loss, recon_loss, feature_loss, gender_loss, age_loss, perceptual_loss, masked_preds, masked_masks = model(
+                    paired_imgs,
+                    paired_masks,
+                    meta_data={"age": age_tensor, "gender": gender_tensor},
+                    inital_mask_ratio = args.inital_mask_ratio,
+                    final_mask_ratio = args.final_mask_ratio,
+                    # mask_ratio=args.masking_ratio,
+                    max_epochs = args.epochs,
+                    epoch = epoch
                 )
-
+            
             loss /= accum_iter
-
             loss_scaler(loss, optimizer, parameters=model.parameters(), update_grad=(idx + 1) % accum_iter == 0)
 
             if (idx + 1) % accum_iter == 0:
@@ -191,11 +198,18 @@ def main(args):
                 if (idx + 1) % args.log_every_n == 0:
                     mean_loss = running_loss / args.log_every_n
                     running_loss = 0
-                    imgs_grid, caption = util.run_one_image(model_without_ddp, imgs, masked_preds, masked_masks, 2)
+                    imgs_grid, caption = util.run_one_image(model_without_ddp, paired_imgs, masked_preds, masked_masks, 2)
                     logger.log({
                         "epoch" : epoch,
                         "imgs" : logger.make_image(imgs_grid, caption=caption),
+                        "age_mean": age_tensor.mean().item(),
+                        "gender_distribution": gender_tensor.sum().item(),
                         "loss" :  mean_loss,
+                        "recon_loss" :  recon_loss,
+                        "feature_loss" :  feature_loss,
+                        "gender_loss" :  gender_loss,
+                        'perceptual_loss': perceptual_loss,
+                        "age_loss" :  age_loss,
                         "lr" : lr,
                         "epoch_progress" : idx / len(dataloader),
                     })
@@ -232,5 +246,8 @@ def main(args):
 
 if __name__ == "__main__":
     args = util.get_args_parser()
+    #################################################################
+    args.add_argument("--csv_path", type=str, default="/home/leeyeonkyung/PRETI/data/csv/PROCESSED_TRAIN_2_automorph_with_masks.csv", help="Path to CSV file with image paths")  
+    #################################################################
     args = args.parse_args()
     main(args)
