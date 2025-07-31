@@ -63,6 +63,19 @@ To build the dataset correctly, you need:
 
 <br>
 
+# Model Variants
+
+| Script Name                   | Description                                                                 |
+|------------------------------|-----------------------------------------------------------------------------|
+| `run_train.py`               | Full **PRETI** model with both **LME** (Learnable Metadata Embedding) and **RAAM** (Region-Aware Attention Masking). |
+| `run_train_no_meta.py`       | PRETI **without LME** – removes metadata embeddings for age and gender.     |
+| `run_train_no_ram.py`        | PRETI **without RAAM** – disables region-aware masking, using random masking instead. |
+| `run_train_no_meta_no_ram.py`| PRETI **without both LME and RAAM** – baseline model with no metadata or region-aware masking. |
+
+
+
+<br>
+
 # Pretrained Weights
 
 We provide pretrained weights for the PRETI model trained on fundus image pairs.
