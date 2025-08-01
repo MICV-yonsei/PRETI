@@ -83,7 +83,7 @@ We provide pretrained weights for the PRETI model trained on fundus image pairs.
 
 | Model Variant | Description               | Download Link |
 |---------------|---------------------------|----------------|
-| `preti-vitb`  | ViT-Base backbone, 119 epochs | [Download](https://drive.google.com/file/d/1mEFm3bxSPPOm4bLPC9Ey64oeq-6F0S0G/view?usp=drive_link) |
+| `preti-vitb`  | ViT-Base backbone         | [Download](https://drive.google.com/file/d/1mEFm3bxSPPOm4bLPC9Ey64oeq-6F0S0G/view?usp=drive_link) |
 
 <br>
 
